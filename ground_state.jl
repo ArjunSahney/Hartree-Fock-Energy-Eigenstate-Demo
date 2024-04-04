@@ -1,35 +1,25 @@
 using Quiqbox
 
-# Define the nuclear configuration of the H2 molecule
+# Set up the molecule
 nuc = ["H", "H"]
-bond_length = 3.0 # Angstrom
-nucCoords = [[-bond_length/2, 0.0, 0.0], [bond_length/2, 0.0, 0.0]]
+bondLength = 3.0  # in Angstrom
+nucCoords = [[-bondLength/2, 0.0, 0.0], [bondLength/2, 0.0, 0.0]]
 
-# Generate the basis set for the H2 molecule
-bs = genBasisFunc.(nucCoords, "STO-3G", nuc) |> flatten
+# Run RHF optimization
+bsRHF = genBasisFunc.(nucCoords, "STO-3G", nuc) |> flatten
+parsRHF = markParams!(bsRHF)
+isConvergedRHF, EsRHF = optimizeParams!(parsRHF, bsRHF, nuc, nucCoords)
+resRHFopt = runHF(bsRHF, nuc, nucCoords)
+println("Optimized RHF energy: ", resRHFopt.Ehf, " Ha")
 
-# Run the RHF calculation
-resRHF = runHF(bs, nuc, nucCoords)
-
-# Print the RHF results
-println("RHF Results:")
-println("Hartree–Fock Energy: ", resRHF.Ehf)
-println("Coefficient Matrix: ", resRHF.C)
-println("Orbital Energies: ", resRHF.Eo)
-println("Occupation Numbers: ", resRHF.occu)
-
-# Define the UHF configuration
-HFc_UHF = HFconfig(HF=:UHF)
-
-# Run the UHF calculation
-resUHF = runHF(bs, nuc, nucCoords, HFc_UHF)
-
-# Print the UHF results
-println("\nUHF Results:")
-println("Hartree–Fock Energy: ", resUHF.Ehf)
-println("Coefficient Matrix: ", resUHF.C)
-println("Orbital Energies: ", resUHF.Eo)
-println("Occupation Numbers: ", resUHF.occu)
-
-# Create a MatterByHF object for further data processing
-mol = MatterByHF(resRHF)
+# Run UHF optimization
+bsUHF = genBasisFunc.(nucCoords, "STO-3G", nuc) |> flatten
+parsUHF = markParams!(bsUHF)
+poCfg = POconfig(maxStep=20, threshold=(1e-6, 1e-4))
+hfCfg = HFconfig(HF=:UHF)
+scfCfg = SCFconfig((:ADIIS, :DIIS), (1e-4, 1e-8), Dict(1=>[:solver=>:LBFGS]))
+isConvergedUHF, EsUHF = optimizeParams!(parsUHF, bsUHF, nuc, nucCoords, 
+                                        poCfg, getCharge(nuc), 
+                                        printInfo=true, infoLevel=1)
+resUHFopt = runHF(bsUHF, nuc, nucCoords, hfCfg, getCharge(nuc), printInfo=true, infoLevel=2)
+println("Optimized UHF energy: ", resUHFopt.Ehf, " Ha")
